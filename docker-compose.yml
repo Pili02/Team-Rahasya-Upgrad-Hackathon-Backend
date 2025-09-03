@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  ai-mindmap-mentor:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./app:/app/app
+    environment:
+      - PYTHONPATH=/app
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    depends_on:
+      - ollama
+    networks:
+      - mindmap-network
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - mindmap-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        ollama serve &
+        sleep 10 &&
+        ollama pull llama3 &&
+        wait
+      "
+
+volumes:
+  ollama_data:
+
+networks:
+  mindmap-network:
+    driver: bridge

@@ -1,0 +1,333 @@
+{
+	"info": {
+		"_postman_id": "ai-mindmap-mentor-collection",
+		"name": "AI MindMap Mentor API",
+		"description": "Complete API collection for testing the AI MindMap Mentor service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Root Endpoint",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				},
+				{
+					"name": "Basic Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						}
+					}
+				},
+				{
+					"name": "Detailed API Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "health"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Mindmap Generation",
+			"item": [
+				{
+					"name": "Generate AI Learning Mindmap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"I want to learn artificial intelligence and machine learning from scratch\",\n  \"max_depth\": 3,\n  \"focus_area\": \"Deep learning and neural networks\",\n  \"time_constraint\": \"6 months\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/generate_mindmap",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "generate_mindmap"]
+						}
+					}
+				},
+				{
+					"name": "Generate Web Development Mindmap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"I want to become a full-stack web developer\",\n  \"max_depth\": 3,\n  \"focus_area\": \"Modern JavaScript frameworks\",\n  \"time_constraint\": \"4 months\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/generate_mindmap",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "generate_mindmap"]
+						}
+					}
+				},
+				{
+					"name": "Generate Data Science Mindmap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"I want to learn data science and analytics\",\n  \"max_depth\": 3,\n  \"focus_area\": \"Statistical analysis and visualization\",\n  \"time_constraint\": \"5 months\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/generate_mindmap",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "generate_mindmap"]
+						}
+					}
+				},
+				{
+					"name": "Generate Cybersecurity Mindmap",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"I want to learn cybersecurity and ethical hacking\",\n  \"max_depth\": 3,\n  \"focus_area\": \"Network security and penetration testing\",\n  \"time_constraint\": \"8 months\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/generate_mindmap",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "generate_mindmap"]
+						}
+					}
+				},
+				{
+					"name": "Custom Mindmap Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"{{custom_description}}\",\n  \"max_depth\": {{max_depth}},\n  \"focus_area\": \"{{focus_area}}\",\n  \"time_constraint\": \"{{time_constraint}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/generate_mindmap",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "generate_mindmap"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Resource Management",
+			"item": [
+				{
+					"name": "Get All Resource Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/resources/categories",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "resources", "categories"]
+						}
+					}
+				},
+				{
+					"name": "Get Resources by Category",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/resources/category/programming?limit=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "resources", "category", "programming"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Add New Resource",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "title",
+									"value": "FastAPI Tutorial",
+									"description": "Resource title"
+								},
+								{
+									"key": "description",
+									"value": "Learn FastAPI framework for building APIs",
+									"description": "Resource description"
+								},
+								{
+									"key": "url",
+									"value": "https://fastapi.tiangolo.com/",
+									"description": "Resource URL"
+								},
+								{
+									"key": "category",
+									"value": "programming",
+									"description": "Resource category"
+								},
+								{
+									"key": "difficulty",
+									"value": "intermediate",
+									"description": "Resource difficulty"
+								},
+								{
+									"key": "tags",
+									"value": "fastapi,python,api,web",
+									"description": "Comma-separated tags"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/resources/add",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "resources", "add"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Advanced Features",
+			"item": [
+				{
+					"name": "Explain Node (Placeholder)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"node_id\": 1,\n  \"context\": \"Learning context\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/explain_node",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "explain_node"]
+						}
+					}
+				},
+				{
+					"name": "Linearize Mindmap (Placeholder)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/linearize",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "linearize"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "custom_description",
+			"value": "I want to learn mobile app development",
+			"type": "string"
+		},
+		{
+			"key": "max_depth",
+			"value": "3",
+			"type": "string"
+		},
+		{
+			"key": "focus_area",
+			"value": "React Native",
+			"type": "string"
+		},
+		{
+			"key": "time_constraint",
+			"value": "6 months",
+			"type": "string"
+		}
+	]
+}
