@@ -32,7 +32,7 @@ class LLMService:
 
     def __init__(
         self,
-        model_name: str = "gemini-1.5-flash",
+        model_name: str = "gemini-2.5-pro",
         rag_service: Optional[RAGService] = None,
     ):
         self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2, top_p=0.9)
@@ -112,10 +112,11 @@ class LLMService:
             "3.  **Practical Application:** How do you actually use it to achieve the goal?\n"
             "4.  **Key Patterns / Best Practices:** What are common ways of working with this technology?\n\n"
             "## CRITICAL OUTPUT REQUIREMENTS ##\n"
-            "1.  **Depth Limit:** The mindmap MUST be flat. Generate ONLY the first level of nodes. DO NOT create any 'children' of children (i.e., max_depth = 1).\n"
-            "2.  **Content:** Each node needs a short `title` and a `description` that explains what the learner will do or understand in that step.\n"
-            "3.  **NO URLs:** The `resources` key for ALL nodes MUST be an empty list `[]`. Do not invent or add any URLs, books, or links.\n"
-            "4.  **Strict JSON:** You must output nothing but a single, valid JSON object. Do not add any text before or after the JSON.\n\n"
+            "1.  **Node Limit:** Generate a maximum of 4-5 top-level nodes, and a maximum of 3 children for each top-level node.\n"
+            "2.  **Depth Limit:** The mindmap MUST have a maximum depth of 2. Generate the first level of nodes, and their direct children. DO NOT create any 'children' of children.\n"
+            "3.  **Content:** Each node needs a short `title` and a `description` that explains what the learner will do or understand in that step.\n"
+            "4.  **NO URLs:** The `resources` key for ALL nodes MUST be an empty list `[]`. Do not invent or add any URLs, books, or links.\n"
+            "5.  **Strict JSON:** You must output nothing but a single, valid JSON object. Do not add any text before or after the JSON.\n\n"
             "## REQUIRED JSON FORMAT ##\n"
             "```json\n"
             "{\n"
@@ -125,15 +126,16 @@ class LLMService:
             '      "id": 1,\n'
             '      "title": "Module 1 Title (e.g., Foundations of X)",\n'
             '      "description": "Actionable description of what to learn or do in this module.",\n'
-            '      "resources": [], // MUST be an empty list\n'
-            '      "children": [] // MUST be an empty list for this initial generation\n'
-            "    },\n"
-            "    {\n"
-            '      "id": 2,\n'
-            '      "title": "Module 2 Title (e.g., Core Architecture of X)",\n'
-            '      "description": "Actionable description of what to learn or do in this module.",\n'
             '      "resources": [],\n'
-            '      "children": []\n'
+            '      "children": [\n'
+            "        {\n"
+            '          "id": 2,\n'
+            '          "title": "Sub-module 1.1",\n'
+            '          "description": "Description for sub-module 1.1",\n'
+            '          "resources": [],\n'
+            '          "children": []\n'
+            "        }\n"
+            "      ]\n"
             "    }\n"
             "  ]\n"
             "}\n"
@@ -163,6 +165,7 @@ class LLMService:
             + time_block
             + context_block
             + "Requirements for children nodes:\n"
+            "- **Node Limit:** Generate a maximum of 3 children nodes.\n"
             "- Each child must be a direct sub-concept or next step of this parent (no generic or unrelated topics).\n"
             "- Each child must have a concise title and actionable description.\n"
             "- Set resources to an empty list [].\n"
@@ -279,207 +282,41 @@ class LLMService:
             logger.error(f"Raw response: {response_text}")
             raise ValueError("Failed to generate valid mindmap structure")
 
-    def _call_llm_parallel(self, prompts: List[str]) -> List[Dict[str, Any]]:
-        """Call LLM in parallel for multiple prompts to speed up node expansion."""
-        import concurrent.futures
-        import threading
-
-        def call_single_llm(prompt: str) -> Dict[str, Any]:
-            """Wrapper for single LLM call to be used in thread pool."""
+    def _call_llm_sequentially(self, prompts: List[str]) -> List[Dict[str, Any]]:
+        """Call LLM sequentially with a delay to avoid rate limiting."""
+        results = []
+        for prompt in prompts:
             try:
-                return self._call_llm(prompt)
+                results.append(self._call_llm(prompt))
+                asyncio.sleep(1)  # Add a 1-second delay between calls
             except Exception as e:
-                logger.error(f"Parallel LLM call failed: {e}")
-                return {"children": []}  # Return empty children on failure
-
-        # Use ThreadPoolExecutor for parallel execution
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(len(prompts), 5)
-        ) as executor:
-            # Submit all prompts for parallel execution
-            future_to_prompt = {
-                executor.submit(call_single_llm, prompt): prompt for prompt in prompts
-            }
-
-            # Collect results in the same order as input prompts
-            results = []
-            for future in concurrent.futures.as_completed(future_to_prompt):
-                try:
-                    result = future.result()
-                    results.append(result)
-                except Exception as e:
-                    logger.error(f"Error in parallel LLM execution: {e}")
-                    results.append({"children": []})
-
+                logger.error(f"Sequential LLM call failed for prompt: {e}")
+                results.append({"children": []})  # Return empty children on failure
         return results
 
     def generate_mindmap(
         self,
         description: str,
-        max_depth: int = 3,
+        max_depth: int = 2,
         time_constraint: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Generate a complete mindmap using an iterative LangGraph process."""
+        """Generate a complete mindmap with a single LLM call."""
         try:
-            # 1. Define the graph nodes
-            def generate_initial_mindmap_node(state: MindmapState) -> MindmapState:
-                # STEP 1: Generate skeleton WITHOUT RAG context
-                prompt = self._create_initial_mindmap_prompt(
-                    state["mindmap"]["root"],
-                    state["max_depth"],
-                    retrieval_context=None,  # No RAG here
-                    time_constraint=state.get("time_constraint"),
-                )
-                raw_mindmap = self._call_llm(prompt)
-                all_nodes = raw_mindmap.get("nodes", [])
-                self._assign_unique_ids_recursive(all_nodes, 1)
-
-                state["mindmap"]["root"] = raw_mindmap.get("root", "Learning Goal")
-                state["mindmap"]["nodes"] = all_nodes
-                # We don't add to nodes_to_expand yet, that happens after enrichment
-                return state
-
-            # NEW NODE for enrichment
-            def enrich_mindmap_node(state: MindmapState) -> MindmapState:
-                nodes_to_enrich = state["mindmap"].get("nodes", [])
-                for node in nodes_to_enrich:
-                    # Build context specifically for this node
-                    query = f"{node.get('title', '')}"
-                    retrieval_context = self._build_retrieval_context(query, top_k=3)
-
-                    if retrieval_context:
-                        enrich_prompt = self._create_enrichment_prompt(
-                            node_title=node.get("title", ""),
-                            node_description=node.get("description", ""),
-                            retrieval_context=retrieval_context,
-                        )
-                        try:
-                            enrichment_response = self._call_llm(enrich_prompt)
-                            if "new_description" in enrichment_response:
-                                # Update the node's description in the state
-                                node["description"] = enrichment_response[
-                                    "new_description"
-                                ]
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to enrich node ID {node.get('id')}: {e}"
-                            )
-                            # Continue even if one node fails to enrich
-
-                # Now that nodes are enriched, populate the expansion queue
-                state["nodes_to_expand"].extend(nodes_to_enrich)
-                state["current_depth"] = 1
-                return state
-
-            def expand_nodes_parallel(state: MindmapState) -> MindmapState:
-                """Expand all nodes at the current level in parallel for much faster processing."""
-                nodes_to_expand = state["nodes_to_expand"]
-                if not nodes_to_expand:
-                    return state
-
-                # Get all nodes for this level (clear the queue)
-                current_level_nodes = nodes_to_expand.copy()
-                state["nodes_to_expand"] = []
-
-                # Prepare prompts for all nodes at this level
-                prompts = []
-                node_queries = []
-
-                for node in current_level_nodes:
-                    node_query = (
-                        f"{node.get('title', '')} {node.get('description', '')}"
-                    )
-                    node_queries.append(node_query)
-                    retrieval_context = self._build_retrieval_context(
-                        node_query, top_k=5
-                    )
-                    prompt = self._create_node_expansion_prompt(
-                        node.get("title", ""),
-                        node.get("description", ""),
-                        node["id"],
-                        retrieval_context,
-                        time_constraint=state.get("time_constraint"),
-                    )
-                    prompts.append(prompt)
-
-                # Call LLM in parallel for all nodes at this level
-                logger.info(f"Expanding {len(prompts)} nodes in parallel...")
-                children_responses = self._call_llm_parallel(prompts)
-
-                # Process all results and assign IDs
-                last_id = self._find_max_id(state["mindmap"]["nodes"])
-                node_id_counter = last_id + 1
-                all_new_children = []
-
-                for node, children_response in zip(
-                    current_level_nodes, children_responses
-                ):
-                    children = children_response.get("children", [])
-
-                    # Assign unique IDs to children
-                    for child in children:
-                        child["id"] = node_id_counter
-                        node_id_counter += 1
-
-                    # Add children to the mindmap
-                    self._add_children_to_mindmap(
-                        state["mindmap"]["nodes"], node["id"], children
-                    )
-
-                    # Collect all new children for next level expansion
-                    all_new_children.extend(children)
-
-                # Add all new children to the queue for the next level
-                state["nodes_to_expand"].extend(all_new_children)
-                state["current_depth"] = self._find_max_depth(state["mindmap"]["nodes"])
-
-                logger.info(
-                    f"Parallel expansion completed. Added {len(all_new_children)} children."
-                )
-                return state
-
-            def should_continue(state: MindmapState) -> str:
-                if (
-                    not state["nodes_to_expand"]
-                    or state["current_depth"] >= state["max_depth"]
-                ):
-                    return "end"
-                return "continue"
-
-            # 2. Build the graph with the new enrichment step and parallel expansion
-            workflow = StateGraph(MindmapState)
-            workflow.add_node("initial", generate_initial_mindmap_node)
-            workflow.add_node("enrich", enrich_mindmap_node)  # Add the new node
-            workflow.add_node("expand", expand_nodes_parallel)  # Use parallel expansion
-
-            workflow.set_entry_point("initial")
-            workflow.add_edge("initial", "enrich")  # Wire initial -> enrich
-
-            workflow.add_conditional_edges(
-                "enrich",  # The decision point is now after enrichment
-                should_continue,
-                {"continue": "expand", "end": END},
+            # Generate the entire mindmap structure in one go
+            prompt = self._create_initial_mindmap_prompt(
+                description,
+                max_depth,
+                retrieval_context=None,  # No RAG here
+                time_constraint=time_constraint,
             )
-            workflow.add_conditional_edges(
-                "expand",
-                should_continue,
-                {"continue": "expand", "end": END},
-            )
+            raw_mindmap = self._call_llm(prompt)
+            all_nodes = raw_mindmap.get("nodes", [])
+            self._assign_unique_ids_recursive(all_nodes, 1)
 
-            app = workflow.compile()
-
-            # 3. Run the graph
-            final_state = app.invoke(
-                {
-                    "mindmap": {"root": description, "nodes": []},
-                    "nodes_to_expand": [],
-                    "current_depth": 0,
-                    "max_depth": max_depth,
-                    "time_constraint": time_constraint,
-                }
-            )
-
-            return final_state["mindmap"]
+            return {
+                "root": raw_mindmap.get("root", "Learning Goal"),
+                "nodes": all_nodes,
+            }
 
         except Exception as e:
             logger.error(f"Error generating mindmap: {e}")
@@ -553,64 +390,3 @@ class LLMService:
         except Exception as e:
             logger.error(f"Failed to connect to Gemini: {e}")
             return False
-
-    def explain_node(
-        self, node: MindmapNode, context: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Explain why a specific node exists in the mindmap"""
-        # This method is not changed
-        try:
-            prompt = self._create_explanation_prompt(node, context)
-
-            response = self.llm.invoke(prompt)
-            response_text = response.content
-
-            # Parse JSON response
-            try:
-                start_idx = response_text.find("{")
-                end_idx = response_text.rfind("}") + 1
-
-                if start_idx != -1 and end_idx != 0:
-                    json_str = response_text[start_idx:end_idx]
-                    explanation_data = json.loads(json_str)
-                    return explanation_data
-                else:
-                    raise ValueError("No JSON content found in response")
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse explanation JSON: {e}")
-                raise ValueError("Failed to generate valid explanation")
-
-        except Exception as e:
-            logger.error(f"Error explaining node: {e}")
-            raise
-
-    def _create_explanation_prompt(
-        self, node: MindmapNode, context: Optional[str] = None
-    ) -> str:
-        """Create a prompt for explaining why a specific node exists"""
-
-        prompt = f"""You are an AI mentor explaining a learning concept.
-        
-        Node to explain:
-        - Title: {node.title}
-        - Description: {node.description}
-        
-        Context: {context if context else 'General learning context'}
-        
-        Explain:
-        1. Why this concept/step is important
-        2. Why it exists in the learning path
-        3. How it connects to other concepts
-        4. Tips for approaching this learning step
-        
-        Output format (JSON):
-        {{
-          "explanation": "Detailed explanation of why this node exists",
-          "importance": "Why this node is important",
-          "tips": ["Tip 1", "Tip 2", "Tip 3"]
-        }}
-        
-        Provide a helpful, encouraging explanation:"""
-
-        return prompt
