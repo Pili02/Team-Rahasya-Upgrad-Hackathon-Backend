@@ -61,9 +61,9 @@ fi
 echo "🔧 Activating virtual environment..."
 source venv/bin/activate
 
-# Install dependencies
-echo "📚 Installing dependencies..."
-pip install -r requirements.txt
+# Install/upgrade dependencies
+echo "📚 Upgrading dependencies..."
+pip install --upgrade -r requirements.txt
 
 # Create data directory if it doesn't exist
 mkdir -p data/chroma_db

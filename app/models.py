@@ -1,14 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from enum import Enum
-
-
-class TimeComplexity(str, Enum):
-    """Time complexity levels for learning nodes"""
-
-    BEGINNER = "Beginner"
-    INTERMEDIATE = "Intermediate"
-    ADVANCED = "Advanced"
 
 
 class MindmapNode(BaseModel):
@@ -19,21 +10,11 @@ class MindmapNode(BaseModel):
     description: str = Field(
         ..., description="Detailed explanation of what this node represents"
     )
-    time_left: str = Field(
-        ..., description="Estimated time to complete this node (e.g., '2-3 weeks')"
-    )
-    difficulty: TimeComplexity = Field(..., description="Difficulty level of this node")
     resources: List[str] = Field(
         default_factory=list, description="List of relevant resource URLs"
     )
-    prerequisites: List[int] = Field(
-        default_factory=list, description="List of prerequisite node IDs"
-    )
     children: List["MindmapNode"] = Field(
         default_factory=list, description="Child nodes"
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
     )
 
 
@@ -42,10 +23,7 @@ class MindmapRequest(BaseModel):
 
     description: str = Field(..., description="User's goal description", min_length=10)
     max_depth: Optional[int] = Field(
-        default=3, description="Maximum depth of the mindmap", ge=1, le=10
-    )
-    focus_area: Optional[str] = Field(
-        default=None, description="Specific area to focus on"
+        default=3, description="Maximum depth of the mindmap", ge=1, le=5
     )
     time_constraint: Optional[str] = Field(
         default=None, description="Time constraint (e.g., '6 months')"
@@ -60,10 +38,6 @@ class MindmapResponse(BaseModel):
         ..., description="List of all nodes in the mindmap"
     )
     total_nodes: int = Field(..., description="Total number of nodes")
-    estimated_total_time: str = Field(
-        ..., description="Estimated total time to complete all nodes"
-    )
-    complexity_score: float = Field(..., description="Overall complexity score (0-1)")
     generated_at: str = Field(..., description="Timestamp when mindmap was generated")
 
 
@@ -93,7 +67,6 @@ class LinearRoadmapResponse(BaseModel):
 
     steps: List[Dict[str, Any]] = Field(..., description="Linear list of steps")
     total_steps: int = Field(..., description="Total number of steps")
-    estimated_total_time: str = Field(..., description="Estimated total time")
 
 
 class ErrorResponse(BaseModel):

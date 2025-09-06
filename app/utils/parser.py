@@ -89,7 +89,6 @@ def clean_nodes(nodes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "time_left": clean_time_estimate(node.get("time_left", "1-2 weeks")),
             "difficulty": clean_difficulty(node.get("difficulty", "Beginner")),
             "resources": clean_resources(node.get("resources", [])),
-            "prerequisites": clean_prerequisites(node.get("prerequisites", [])),
             "children": [],
         }
 
@@ -179,28 +178,6 @@ def clean_resources(resources: Any) -> List[str]:
                 cleaned_resources.append(resource.strip())
 
     return cleaned_resources
-
-
-def clean_prerequisites(prerequisites: Any) -> List[int]:
-    """Clean and validate prerequisite lists"""
-    if not prerequisites:
-        return []
-
-    if not isinstance(prerequisites, list):
-        return []
-
-    cleaned_prereqs = []
-
-    for prereq in prerequisites:
-        try:
-            if isinstance(prereq, int):
-                cleaned_prereqs.append(prereq)
-            elif isinstance(prereq, str) and prereq.isdigit():
-                cleaned_prereqs.append(int(prereq))
-        except (ValueError, TypeError):
-            continue
-
-    return cleaned_prereqs
 
 
 def validate_mindmap_structure(data: Dict[str, Any]) -> bool:

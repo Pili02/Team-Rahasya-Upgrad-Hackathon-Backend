@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
 import logging
@@ -22,15 +22,43 @@ router = APIRouter(prefix="/api/v1", tags=["mindmap"])
 mindmap_service = MindmapService()
 llm_service = LLMService()
 
+# In-memory storage for enriched mindmaps (in production, use a database)
+enriched_mindmaps = {}
+
+
+async def enrich_mindmap_background(initial_mindmap: MindmapResponse):
+    """Background task to enrich mindmap with resources and store the result"""
+    try:
+        logger.info(
+            f"Starting background enrichment for mindmap with {initial_mindmap.total_nodes} nodes"
+        )
+
+        # Enrich the mindmap with resources
+        enriched_mindmap = mindmap_service.enrich_mindmap_with_resources(
+            initial_mindmap
+        )
+
+        # Store the enriched mindmap using the generated_at timestamp as key
+        enriched_mindmaps[initial_mindmap.generated_at] = enriched_mindmap
+
+        logger.info(
+            f"Background enrichment completed for mindmap {initial_mindmap.generated_at}"
+        )
+
+    except Exception as e:
+        logger.error(f"Background enrichment failed: {e}")
+        # Store error state
+        enriched_mindmaps[initial_mindmap.generated_at] = {"error": str(e)}
+
 
 @router.post("/generate_mindmap", response_model=MindmapResponse)
-async def generate_mindmap(request: MindmapRequest):
+async def generate_mindmap(request: MindmapRequest, background_tasks: BackgroundTasks):
     """
-    Generate a mindmap from a goal description.
+    Generate a mindmap from a goal description with fast initial response and background enrichment.
 
     This endpoint creates a hierarchical, structured mindmap with:
-    - Nodes organized by difficulty and time estimates
-    - RAG-powered resource recommendations
+    - Fast initial response with mindmap structure (10-20 seconds)
+    - Background enrichment with RAG-powered resource recommendations
     - Complexity scoring and time calculations
     """
     try:
@@ -39,22 +67,26 @@ async def generate_mindmap(request: MindmapRequest):
         )
 
         # Check if Ollama is running
-        if not llm_service.test_connection():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Ollama service is not available. Please ensure 'ollama run llama3' is running.",
-            )
+        # if not llm_service.test_connection():
+        #     raise HTTPException(
+        #         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        #         detail="Ollama service is not available. Please ensure 'ollama run llama3' is running.",
+        #     )
 
-        # Generate the mindmap
-        mindmap = mindmap_service.generate_mindmap(
+        # Generate the initial mindmap structure (fast)
+        initial_mindmap = mindmap_service.generate_initial_mindmap(
             description=request.description,
             max_depth=request.max_depth,
-            focus_area=request.focus_area,
             time_constraint=request.time_constraint,
         )
 
-        logger.info(f"Successfully generated mindmap with {mindmap.total_nodes} nodes")
-        return mindmap
+        # Add resource enrichment to background tasks
+        background_tasks.add_task(enrich_mindmap_background, initial_mindmap)
+
+        logger.info(
+            f"Successfully generated initial mindmap with {initial_mindmap.total_nodes} nodes. Resource enrichment running in background."
+        )
+        return initial_mindmap
 
     except ValueError as e:
         logger.error(f"Validation error: {e}")
@@ -64,6 +96,42 @@ async def generate_mindmap(request: MindmapRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate mindmap: {str(e)}",
+        )
+
+
+@router.get("/mindmap/enriched/{timestamp}", response_model=MindmapResponse)
+async def get_enriched_mindmap(timestamp: str):
+    """
+    Get the enriched mindmap with resources after background processing is complete.
+
+    Args:
+        timestamp: The generated_at timestamp from the initial mindmap response
+    """
+    try:
+        if timestamp not in enriched_mindmaps:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Enriched mindmap not found. It may still be processing or the timestamp is invalid.",
+            )
+
+        enriched_mindmap = enriched_mindmaps[timestamp]
+
+        # Check if enrichment failed
+        if isinstance(enriched_mindmap, dict) and "error" in enriched_mindmap:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Enrichment failed: {enriched_mindmap['error']}",
+            )
+
+        return enriched_mindmap
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving enriched mindmap: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve enriched mindmap: {str(e)}",
         )
 
 
