@@ -10,6 +10,8 @@ from app.routes import router
 from app.services.llm_service import LLMService
 from app.config import settings
 
+from fastapi.responses import JSONResponse, FileResponse
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -128,21 +130,9 @@ app.include_router(router)
 
 # Root endpoint
 @app.get("/")
-async def root():
-    """Root endpoint with project information"""
-    return {
-        "message": "🧠 AI MindMap Mentor API",
-        "description": "Convert vague goals into structured learning mindmaps",
-        "version": "1.0.0",
-        "status": "running",
-        "docs": "/docs",
-        "health": "/api/v1/health",
-        "endpoints": {
-            "generate_mindmap": "/api/v1/generate_mindmap",
-            "health_check": "/api/v1/health",
-            "resource_categories": "/api/v1/resources/categories",
-        },
-    }
+async def read_index():
+    """Serves the frontend's index.html file"""
+    return FileResponse("static/index.html")
 
 
 # Health check endpoint (simple version)
