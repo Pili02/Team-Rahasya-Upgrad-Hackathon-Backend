@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 
 from app.routes import router
 from app.services.llm_service import LLMService
-from app.services.rag_service import RAGService
+from app.config import settings
 
 # Configure logging
 logging.basicConfig(
@@ -26,22 +26,23 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting AI MindMap Mentor...")
 
+    # Validate configuration
+    try:
+        settings.validate()
+        logger.info("✅ Configuration validated successfully")
+    except ValueError as e:
+        logger.error(f"❌ Configuration error: {e}")
+        if settings.is_production():
+            raise  # Fail fast in production
+
     # Test services on startup
     try:
-        # Test Ollama connection
+        # Test Gemini connection
         llm_service = LLMService()
         if llm_service.test_connection():
-            logger.info("✅ Ollama connection successful")
+            logger.info("✅ Gemini connection successful")
         else:
-            logger.warning("⚠️  Ollama not available - mindmap generation will fail")
-
-        # Test RAG service
-        rag_service = RAGService()
-        categories = rag_service.get_all_categories()
-        logger.info(
-            f"✅ RAG service initialized with {len(categories)} resource categories"
-        )
-
+            logger.warning("⚠️  Gemini not available - mindmap generation will fail")
     except Exception as e:
         logger.error(f"❌ Service initialization error: {e}")
 
@@ -62,16 +63,15 @@ app = FastAPI(
     ## Features
     
     - **Mindmap Generation**: Builds tree structures instead of flat lists
-    - **RAG-powered Resources**: Real, verified educational resources via vector database
+    - **Resource Enrichment**: Real, verified educational resources via Tavily API
     - **Time Estimation**: Granular time estimates for each learning node
     - **Explainability**: Query any node to understand why it exists
     - **Interoperability**: Export as JSON, linear roadmap, or graph visualization
     
     ## Quick Start
     
-    1. Ensure Ollama is running: `ollama run llama3`
-    2. Use the `/generate_mindmap` endpoint with your learning goal
-    3. Get a structured, hierarchical mindmap with resources and time estimates
+    1. Use the `/generate_mindmap` endpoint with your learning goal
+    2. Get a structured, hierarchical mindmap with resources and time estimates
     
     ## Example
     
@@ -95,7 +95,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to your frontend domain
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,5 +172,9 @@ if __name__ == "__main__":
 
     logger.info("🚀 Starting AI MindMap Mentor server...")
     uvicorn.run(
-        "app.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+        log_level="info",
     )

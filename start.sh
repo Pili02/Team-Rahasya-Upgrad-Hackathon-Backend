@@ -20,36 +20,8 @@ fi
 
 echo "✅ Python $PYTHON_VERSION detected"
 
-# Check if Ollama is running
-echo "🔍 Checking Ollama connection..."
-if ! curl -s http://localhost:11434/api/tags &> /dev/null; then
-    echo "⚠️  Ollama is not running on localhost:11434"
-    echo "💡 Please start Ollama first with: ollama run llama3"
-    echo "   Or start it in another terminal and run this script again."
-    echo ""
-    echo "Starting Ollama now..."
-    if command -v ollama &> /dev/null; then
-        echo "🚀 Starting Ollama with LLaMA 3..."
-        ollama run llama3 &
-        OLLAMA_PID=$!
-        echo "⏳ Waiting for Ollama to start..."
-        sleep 10
-        
-        # Check if it's running
-        if curl -s http://localhost:11434/api/tags &> /dev/null; then
-            echo "✅ Ollama is now running"
-        else
-            echo "❌ Failed to start Ollama. Please start it manually."
-            exit 1
-        fi
-    else
-        echo "❌ Ollama is not installed. Please install it first."
-        echo "   Visit: https://ollama.ai/"
-        exit 1
-    fi
-else
-    echo "✅ Ollama is running"
-fi
+# Gemini is now used as the LLM backend. No need to start Ollama or llama locally.
+echo "💡 Using Gemini as the LLM backend. No local LLM startup required."
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
@@ -79,8 +51,4 @@ echo ""
 
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Cleanup if Ollama was started by this script
-if [ ! -z "$OLLAMA_PID" ]; then
-    echo "🛑 Stopping Ollama..."
-    kill $OLLAMA_PID
-fi
+# No Ollama process to clean up with Gemini backend.

@@ -4,7 +4,6 @@ from datetime import datetime
 import json
 from app.models import MindmapNode, MindmapResponse
 from app.services.llm_service import LLMService
-from app.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +12,9 @@ class MindmapService:
     """Core service for mindmap generation and processing"""
 
     def __init__(self, resource_config: Optional[Dict[str, Any]] = None):
-        # Initialize RAG first so we can inject it into the LLM for retrieval-augmented prompts
-        self.rag_service = RAGService()
-        self.llm_service = LLMService(rag_service=self.rag_service)
+        self.llm_service = LLMService()
 
-        # Configure resource search behavior
-        self.resource_config = resource_config or {
-            "min_relevance_score": 0.7,  # Stricter similarity score for existing resources
-            "min_resources_needed": 2,  # Minimum number of quality resources needed
-            "always_search_external": False,  # Avoid unnecessary external search
-            "max_external_results": 3,  # Maximum results to fetch from external sources
-        }
+    # No resource enrichment config needed
 
     def generate_mindmap(
         self,
@@ -133,171 +124,11 @@ class MindmapService:
     def enrich_mindmap_with_resources(
         self, mindmap_response: MindmapResponse
     ) -> MindmapResponse:
-        """Enrich an existing mindmap with resources (for background processing)"""
+        """Return the mindmap as-is (no resource enrichment)."""
+        logger.info(f"Resource enrichment skipped (Tavily removed)")
+        return mindmap_response
 
-        try:
-            logger.info(f"Enriching mindmap with resources...")
-
-            # Convert MindmapNode objects back to dict format for enrichment
-            def node_to_dict(node: MindmapNode) -> Dict[str, Any]:
-                children = [node_to_dict(child) for child in node.children]
-                return {
-                    "id": node.id,
-                    "title": node.title,
-                    "description": node.description,
-                    "resources": node.resources,
-                    "children": children,
-                }
-
-            mindmap_dict = {
-                "root": mindmap_response.root,
-                "nodes": [node_to_dict(node) for node in mindmap_response.nodes],
-            }
-
-            # Enrich with RAG resources
-            enriched_mindmap = self._enrich_with_resources(mindmap_dict)
-
-            # Convert back to MindmapNode objects
-            def dict_to_node(node_dict):
-                children = [
-                    dict_to_node(child) for child in node_dict.get("children", [])
-                ]
-                return MindmapNode(
-                    id=node_dict["id"],
-                    title=node_dict["title"],
-                    description=node_dict["description"],
-                    resources=node_dict.get("resources", []),
-                    children=children,
-                )
-
-            enriched_nodes = [dict_to_node(node) for node in enriched_mindmap["nodes"]]
-
-            # Create enriched response
-            enriched_response = MindmapResponse(
-                root=enriched_mindmap["root"],
-                nodes=enriched_nodes,
-                total_nodes=mindmap_response.total_nodes,  # Keep same count
-                generated_at=mindmap_response.generated_at,  # Keep original timestamp
-            )
-
-            logger.info(f"Successfully enriched mindmap with resources")
-            return enriched_response
-
-        except Exception as e:
-            logger.error(f"Error enriching mindmap with resources: {e}")
-            raise
-
-    def _enrich_with_resources(self, mindmap_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Enrich mindmap nodes with relevant resources from RAG and Tavily (intelligently)"""
-        from app.utils.tavily_api import TavilyAPI
-
-        tavily = TavilyAPI()
-
-        def enrich_node(node_data: Dict[str, Any]) -> Dict[str, Any]:
-            node_title = node_data.get("title", "")
-            node_description = node_data.get("description", "")
-
-            # 1. First check if we have sufficient resources in vector DB
-            coverage = self.rag_service.check_resource_coverage(
-                node_title=node_title,
-                node_description=node_description,
-                min_score=self.resource_config["min_relevance_score"],
-                min_resources=self.resource_config["min_resources_needed"],
-            )
-
-            logger.info(
-                f"Resource coverage for '{node_title}': {coverage['sufficient']} "
-                f"({coverage['found_resources']} resources, avg relevance: {coverage['avg_relevance']:.2f})"
-            )
-
-            # 2. Only search Tavily if we don't have sufficient coverage OR if always_search is enabled
-            should_search_external = (
-                not coverage["sufficient"]
-                or self.resource_config["always_search_external"]
-            )
-
-            if should_search_external:
-                search_reason = (
-                    "insufficient resources"
-                    if not coverage["sufficient"]
-                    else "always_search enabled"
-                )
-                logger.info(
-                    f"Searching external sources for '{node_title}' ({search_reason})..."
-                )
-                query = f"{node_title} {node_description}"
-
-                try:
-                    tavily_results = tavily.search(
-                        query, num_results=self.resource_config["max_external_results"]
-                    )
-
-                    # Prepare resources for batch add
-                    new_resources = []
-                    for result in tavily_results:
-                        title = result.get("title", "")
-                        url = result.get("url", "")
-                        snippet = (
-                            result.get("snippet") or result.get("description") or ""
-                        )
-
-                        if title and url:  # Only add if we have essential info
-                            new_resources.append(
-                                {
-                                    "title": title,
-                                    "description": snippet,
-                                    "url": url,
-                                    "category": node_data.get("category", "general"),
-                                    "difficulty": node_data.get(
-                                        "difficulty", "beginner"
-                                    ),
-                                    "tags": [
-                                        "tavily",
-                                        "external",
-                                        node_title.lower().replace(" ", "_"),
-                                    ],
-                                }
-                            )
-
-                    # Batch add new resources (with duplicate checking)
-                    if new_resources:
-                        batch_result = self.rag_service.add_resources_batch(
-                            new_resources, check_duplicates=True
-                        )
-                        logger.info(
-                            f"Added {batch_result['added']} new resources, "
-                            f"skipped {batch_result['skipped']} duplicates"
-                        )
-
-                except Exception as e:
-                    logger.warning(f"External search failed for '{node_title}': {e}")
-            else:
-                logger.info(
-                    f"Using existing resources for '{node_title}' "
-                    f"(found {coverage['found_resources']} quality resources)"
-                )
-
-            # 3. Get the best resources from vector DB (after potential enrichment)
-            resources = self.rag_service.get_resources_for_node(
-                node_title=node_title,
-                node_description=node_description,
-            )
-
-            # 4. Update node with resources
-            enriched_node = node_data.copy()
-            enriched_node["resources"] = resources
-
-            # 5. Recursively enrich children
-            if "children" in enriched_node and enriched_node["children"]:
-                enriched_node["children"] = [
-                    enrich_node(child) for child in enriched_node["children"]
-                ]
-
-            return enriched_node
-
-        # Enrich all nodes
-        enriched_nodes = [enrich_node(node) for node in mindmap_data["nodes"]]
-        return {"root": mindmap_data["root"], "nodes": enriched_nodes}
+    # _enrich_with_resources removed: no resource enrichment, Tavily removed
 
     def _count_total_nodes(self, nodes: List[MindmapNode]) -> int:
         """Count total number of nodes in the mindmap"""

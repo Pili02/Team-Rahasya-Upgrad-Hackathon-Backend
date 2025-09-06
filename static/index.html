@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Mind Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <header class="app__header">
+            <div class="brand">
+                <div class="logo">🧠</div>
+                <div class="title">AI Mind Map</div>
+            </div>
+            <form id="prompt-form" class="prompt">
+                <input id="prompt-input" class="prompt__input" type="text" placeholder="Describe your topic (e.g., \"Photosynthesis essay\")" required autofocus />
+                <button class="prompt__button" type="submit">Generate</button>
+            </form>
+        </header>
+
+        <main class="app__main">
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar__section">
+                    <h3>Description</h3>
+                    <div id="node-details" class="details">
+                        <div class="muted">Hover nodes to see details</div>
+                    </div>
+                </div>
+                
+            </aside>
+
+            <section class="canvas-wrapper">
+                <div class="canvas-toolbar">
+                    <button id="center-root" title="Center mind map">Center Map</button>
+                </div>
+                <div id="welcome-screen" class="welcome-screen">
+                    <h1>AI Mind Map</h1>
+                    <div class="typing-text" id="typing-text">
+                        <span id="typing-content">Transform your ideas into structured learning paths...</span>
+                        <span class="typing-cursor"></span>
+                    </div>
+                </div>
+                <svg id="mindmap" class="canvas" aria-label="Mind map visualization" style="display: none;"></svg>
+            </section>
+        </main>
+
+        <footer class="app__footer">
+            <span>Tip: Scroll to zoom, drag to pan. Click a node to focus.</span>
+        </footer>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
+
+

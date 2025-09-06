@@ -9,7 +9,6 @@ from app.models import MindmapNode
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, END
-from app.services.rag_service import RAGService
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
@@ -33,12 +32,9 @@ class LLMService:
     def __init__(
         self,
         model_name: str = "gemini-2.5-pro",
-        rag_service: Optional[RAGService] = None,
     ):
         self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2, top_p=0.9)
         self.model_name = model_name
-        # Optional vector DB for retrieval-augmented prompts
-        self.rag_service = rag_service
 
     # Add this new method to the LLMService class
 
@@ -185,31 +181,7 @@ class LLMService:
             "Return only valid JSON:"
         )
 
-    def _build_retrieval_context(self, query: str, top_k: int = 5) -> Optional[str]:
-        """Fetch top-k resources from the vector DB and build a compact reference block."""
-        if not self.rag_service:
-            return None
-        try:
-            # Use a relevance threshold to avoid polluting the prompt with generic resources
-            resources = self.rag_service.search_resources(
-                query=query, limit=top_k, min_score=0.65
-            )
-            if not resources:
-                return None
-            lines: List[str] = []
-            for i, r in enumerate(resources, start=1):
-                title = r.get("title", "")
-                desc = r.get("description", "")
-                url = r.get("url", "")
-                snippet = desc or ""
-                # Keep it short to avoid blowing the context window
-                if len(snippet) > 160:
-                    snippet = snippet[:157] + "..."
-                lines.append(f"{i}. {title} — {snippet}\n   Link: {url}")
-            return "\n".join(lines)
-        except Exception as e:
-            logger.warning(f"Retrieval context failed for query '{query}': {e}")
-            return None
+    # _build_retrieval_context removed: no vector DB, only Tavily used in mindmap_service
 
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """A reusable function to call the Gemini LLM and parse the JSON response."""

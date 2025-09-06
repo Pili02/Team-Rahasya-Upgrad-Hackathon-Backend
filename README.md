@@ -1,11 +1,10 @@
 # 🧠 AI MindMap Mentor
 
-An intelligent backend system that converts vague goal descriptions into dynamic, hierarchical mindmaps. Unlike traditional linear roadmaps, this system creates interconnected concept trees with explanations, time estimates, and RAG-powered resources.
+An intelligent backend system that converts vague goal descriptions into dynamic, hierarchical mindmaps. Unlike traditional linear roadmaps, this system creates interconnected concept trees with explanations, time estimates, and real educational resources fetched live from the web.
 
 ## 🚀 Features
-
 - **Fast Mindmap Generation**: Builds tree structures with parallel processing (10-20s response time)
-- **RAG-powered Resources**: Real, verified educational resources via vector database
+- **Resource Enrichment**: Real, verified educational resources via Tavily API
 - **Background Enrichment**: Resources are added in the background for immediate user response
 - **Parallel LLM Processing**: Multiple nodes expanded simultaneously for 60-80% speed improvement
 - **Time Estimation**: Granular time estimates for each learning node
@@ -13,42 +12,32 @@ An intelligent backend system that converts vague goal descriptions into dynamic
 - **Interoperability**: Export as JSON, linear roadmap, or graph visualization
 
 ## 🛠️ Tech Stack
-
 - **Backend**: FastAPI (Python)
-- **LLM**: LLaMA 3 via Ollama (local inference)
-- **RAG**: LangChain + ChromaDB
+- **LLM**: Google Gemini (via API)
+- **Resource Search**: Tavily API
 - **Schema**: Pydantic models
 - **Deployment**: Docker ready
 
 ## 📋 Prerequisites
-
 - Python 3.8+
-- Ollama installed and running locally
-- `ollama run llama3` command available
+- Tavily API key (set TAVILY_API_KEY in your environment)
 
 ## 🚀 Quick Start
-
 1. **Install dependencies**:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+  ```bash
+  pip install -r requirements.txt
+  ```
 
-2. **Start Ollama with LLaMA 3**:
+2. **Run the application**:
 
-   ```bash
-   ollama run llama3
-   ```
+  ```bash
+  uvicorn app.main:app --reload
+  ```
 
-3. **Run the application**:
-
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-4. **Access the API**:
-   - API docs: http://localhost:8000/docs
-   - Generate mindmap: POST http://localhost:8000/generate_mindmap
+3. **Access the API**:
+  - API docs: http://localhost:8000/docs
+  - Generate mindmap: POST http://localhost:8000/generate_mindmap
 
 ## 📚 API Endpoints
 
@@ -96,7 +85,7 @@ ai-mindmap-mentor/
 │   ├── routes.py            # API endpoints
 │   ├── services/            # Core business logic
 │   └── utils/               # Helper functions
-├── data/                    # Knowledge base for RAG
+├── data/                    # (Optional) Local cache or temp data
 ├── requirements.txt
 └── README.md
 ```

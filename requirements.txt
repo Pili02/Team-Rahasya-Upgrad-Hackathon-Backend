@@ -6,7 +6,5 @@ langchain-community
 langchain-ollama
 langchain-google-genai
 langgraph
-beautifulsoup4
-chromadb
 tavily-python
 langchainhub

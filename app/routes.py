@@ -208,33 +208,19 @@ async def health_check():
             "checks": {},
         }
 
-        # Check Ollama connection
+        # Check Gemini connection (LLM)
         try:
-            ollama_healthy = llm_service.test_connection()
-            health_status["checks"]["ollama"] = {
-                "status": "healthy" if ollama_healthy else "unhealthy",
+            gemini_healthy = llm_service.test_connection()
+            health_status["checks"]["gemini"] = {
+                "status": "healthy" if gemini_healthy else "unhealthy",
                 "message": (
-                    "Connected to Ollama"
-                    if ollama_healthy
-                    else "Cannot connect to Ollama"
+                    "Connected to Gemini"
+                    if gemini_healthy
+                    else "Cannot connect to Gemini"
                 ),
             }
         except Exception as e:
-            health_status["checks"]["ollama"] = {
-                "status": "unhealthy",
-                "message": f"Error: {str(e)}",
-            }
-
-        # Check RAG service
-        try:
-            # Simple check - try to get categories
-            categories = mindmap_service.rag_service.get_all_categories()
-            health_status["checks"]["rag_service"] = {
-                "status": "healthy",
-                "message": f"Available categories: {len(categories)}",
-            }
-        except Exception as e:
-            health_status["checks"]["rag_service"] = {
+            health_status["checks"]["gemini"] = {
                 "status": "unhealthy",
                 "message": f"Error: {str(e)}",
             }
@@ -243,10 +229,8 @@ async def health_check():
         all_healthy = all(
             check["status"] == "healthy" for check in health_status["checks"].values()
         )
-
         if not all_healthy:
             health_status["status"] = "degraded"
-
         return health_status
 
     except Exception as e:
@@ -257,92 +241,4 @@ async def health_check():
         )
 
 
-@router.get("/resources/categories")
-async def get_resource_categories():
-    """
-    Get all available resource categories from the RAG service.
-
-    Returns a list of categories that can be used to filter educational resources.
-    """
-    try:
-        categories = mindmap_service.rag_service.get_all_categories()
-        return {"categories": categories, "total": len(categories)}
-    except Exception as e:
-        logger.error(f"Error getting resource categories: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get resource categories: {str(e)}",
-        )
-
-
-@router.get("/resources/category/{category}")
-async def get_resources_by_category(category: str, limit: int = 10):
-    """
-    Get resources filtered by a specific category.
-
-    Args:
-        category: The category to filter by
-        limit: Maximum number of resources to return (default: 10)
-    """
-    try:
-        resources = mindmap_service.rag_service.get_resources_by_category(
-            category, limit
-        )
-        return {"category": category, "resources": resources, "total": len(resources)}
-    except Exception as e:
-        logger.error(f"Error getting resources for category {category}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get resources for category {category}: {str(e)}",
-        )
-
-
-@router.post("/resources/add")
-async def add_resource(
-    title: str, description: str, url: str, category: str, difficulty: str, tags: str
-):
-    """
-    Add a new educational resource to the knowledge base.
-
-    Args:
-        title: Resource title
-        description: Resource description
-        url: Resource URL
-        category: Resource category
-        difficulty: Resource difficulty level
-        tags: Comma-separated tags
-    """
-    try:
-        # Parse tags
-        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
-
-        success = mindmap_service.rag_service.add_resource(
-            title=title,
-            description=description,
-            url=url,
-            category=category,
-            difficulty=difficulty,
-            tags=tag_list,
-        )
-
-        if success:
-            return {
-                "message": "Resource added successfully",
-                "title": title,
-                "category": category,
-            }
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to add resource",
-            )
-
-    except Exception as e:
-        logger.error(f"Error adding resource: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to add resource: {str(e)}",
-        )
-
-
-# Note: Exception handlers are moved to main.py since APIRouter doesn't support them
+# Resource/category endpoints removed: all resource enrichment is now via Tavily only
